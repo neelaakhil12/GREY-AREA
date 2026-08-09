@@ -164,34 +164,44 @@ const Admin = () => {
         fetch('/api/newsletter/subscribers').then(r => r.json()).catch(() => ({ success: false }))
       ]);
 
-      let apiItems = (galRes.success && Array.isArray(galRes.data)) ? galRes.data : [];
-      let apiEnquiries = (enqRes.success && Array.isArray(enqRes.data)) ? enqRes.data : [];
-      let apiSubscribers = (subRes.success && Array.isArray(subRes.data)) ? subRes.data : [];
-
-      // 1b. Direct Supabase REST API subscriber query for Vercel production environment
+      // 1b. Direct Supabase REST API gallery & subscriber query for Vercel production environment
       let supaSubscribers = [];
+      let supaGalleryItems = [];
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://moofrnuptxblogvfweac.supabase.co';
       const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vb2ZybnVwdHhibG9ndmZ3ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE2MDcsImV4cCI6MjEwMTg1NzYwN30.H1KFnNtx5zIGm8-clt9S3WdPIrBSlcUfa0HAwJPafNo';
 
       try {
-        const supaRes = await fetch(`${SUPABASE_URL}/rest/v1/newsletter_subscribers?select=*`, {
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        });
-        if (supaRes.ok) {
-          const supaData = await supaRes.json();
-          if (Array.isArray(supaData)) {
-            supaSubscribers = supaData.map(s => ({
-              id: s.id,
-              email: s.email,
-              name: s.name,
-              source: s.source,
-              status: s.status || 'Active',
-              subscribedAt: s.subscribed_at
-            }));
-          }
+        const [supaSubRes, supaGalRes] = await Promise.all([
+          fetch(`${SUPABASE_URL}/rest/v1/newsletter_subscribers?select=*`, {
+            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+          }).then(r => r.json()).catch(() => []),
+          fetch(`${SUPABASE_URL}/rest/v1/gallery_items?select=*`, {
+            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+          }).then(r => r.json()).catch(() => [])
+        ]);
+
+        if (Array.isArray(supaSubRes)) {
+          supaSubscribers = supaSubRes.map(s => ({
+            id: s.id,
+            email: s.email,
+            name: s.name,
+            source: s.source,
+            status: s.status || 'Active',
+            subscribedAt: s.subscribed_at
+          }));
+        }
+
+        if (Array.isArray(supaGalRes)) {
+          supaGalleryItems = supaGalRes.map(g => ({
+            id: g.id,
+            title: g.title,
+            category: g.category,
+            mediaType: g.media_type || g.mediaType || (g.video_url ? 'video' : 'image'),
+            imageUrl: g.image_url || g.imageUrl,
+            videoUrl: g.video_url || g.videoUrl || '',
+            description: g.description || '',
+            createdAt: g.created_at || g.createdAt
+          }));
         }
       } catch (e) {
         console.warn('Supabase direct fetch note:', e);
@@ -228,7 +238,7 @@ const Admin = () => {
       const allSubscribers = Array.from(subMap.values());
 
       // 4. Merge & deduplicate gallery items
-      const combined = [...localCustom, ...apiItems, ...initialGalleryItems];
+      const combined = [...localCustom, ...supaGalleryItems, ...apiItems, ...initialGalleryItems];
       const uniqueMap = new Map();
       combined.forEach(item => {
         if (item && item.title) {
@@ -298,15 +308,44 @@ const Admin = () => {
       // 2. Save to state
       setGalleryItems(prev => [newItem, ...prev]);
 
-      // 3. Post to backend API
+      // 3. Post to Supabase REST API directly (works on Vercel)
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://moofrnuptxblogvfweac.supabase.co';
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vb2ZybnVwdHhibG9ndmZ3ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE2MDcsImV4cCI6MjEwMTg1NzYwN30.H1KFnNtx5zIGm8-clt9S3WdPIrBSlcUfa0HAwJPafNo';
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/gallery_items`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({
+            id: newItem.id,
+            title: newItem.title,
+            category: newItem.category,
+            media_type: newItem.mediaType,
+            image_url: newItem.imageUrl,
+            video_url: newItem.videoUrl || '',
+            description: newItem.description || '',
+            created_at: newItem.createdAt
+          })
+        });
+      } catch (e) {
+        console.warn('Supabase gallery item add note:', e);
+      }
+
+      // 4. Post to backend API if available
       const res = await fetch('/api/gallery', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newItem)
-      });
-      const data = await res.json().catch(() => ({}));
-      if (data.success && data.data) {
-        setGalleryItems(prev => prev.map(item => item.id === newItem.id ? data.data : item));
+      }).catch(() => null);
+      if (res && res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.success && data.data) {
+          setGalleryItems(prev => prev.map(item => item.id === newItem.id ? data.data : item));
+        }
       }
 
       setShowAddModal(false);
@@ -436,8 +475,21 @@ const Admin = () => {
       const updatedStored = existingStored.filter(item => item.id !== id && item.title !== titleToDelete);
       localStorage.setItem('grey_area_custom_gallery', JSON.stringify(updatedStored));
 
-      const res = await fetch(`/api/gallery/${id}`, { method: 'DELETE' });
-      await res.json().catch(() => ({}));
+      // Delete from Express API and Supabase REST API directly (works on Vercel)
+      await fetch(`/api/gallery/${id}`, { method: 'DELETE' }).catch(() => ({}));
+      
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://moofrnuptxblogvfweac.supabase.co';
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vb2ZybnVwdHhibG9ndmZ3ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE2MDcsImV4cCI6MjEwMTg1NzYwN30.H1KFnNtx5zIGm8-clt9S3WdPIrBSlcUfa0HAwJPafNo';
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/gallery_items?id=eq.${id}`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+      } catch (e) {}
+
       showToast('🗑️ Gallery item deleted successfully!');
     } catch (err) {
       console.error('Delete gallery item error:', err);

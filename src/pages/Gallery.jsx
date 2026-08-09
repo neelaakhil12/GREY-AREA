@@ -24,17 +24,35 @@ const Gallery = () => {
       console.warn('API gallery load warning (using local fallback):', err);
     }
 
-    // Load any client-saved custom uploads
-    let localCustomItems = [];
+    // Query Supabase REST API directly for Vercel production deployment
+    let supaItems = [];
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://moofrnuptxblogvfweac.supabase.co';
+    const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vb2ZybnVwdHhibG9ndmZ3ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE2MDcsImV4cCI6MjEwMTg1NzYwN30.H1KFnNtx5zIGm8-clt9S3WdPIrBSlcUfa0HAwJPafNo';
     try {
-      const stored = localStorage.getItem('grey_area_custom_gallery');
-      if (stored) localCustomItems = JSON.parse(stored);
+      const supaRes = await fetch(`${SUPABASE_URL}/rest/v1/gallery_items?select=*`, {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+      });
+      if (supaRes.ok) {
+        const supaData = await supaRes.json();
+        if (Array.isArray(supaData)) {
+          supaItems = supaData.map(g => ({
+            id: g.id,
+            title: g.title,
+            category: g.category,
+            mediaType: g.media_type || g.mediaType || (g.video_url ? 'video' : 'image'),
+            imageUrl: g.image_url || g.imageUrl,
+            videoUrl: g.video_url || g.videoUrl || '',
+            description: g.description || '',
+            createdAt: g.created_at || g.createdAt
+          }));
+        }
+      }
     } catch (e) {
-      console.error('Local storage gallery read error:', e);
+      console.warn('Supabase gallery load note:', e);
     }
 
-    // Merge: custom uploads + api items + initial defaults (preventing duplicates by id & title)
-    const combined = [...localCustomItems, ...apiItems, ...initialGalleryItems];
+    // Merge: custom uploads + supa items + api items + initial defaults (preventing duplicates by id & title)
+    const combined = [...localCustomItems, ...supaItems, ...apiItems, ...initialGalleryItems];
     const uniqueMap = new Map();
     combined.forEach(item => {
       if (item && item.title) {
