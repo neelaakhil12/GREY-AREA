@@ -74,7 +74,7 @@ const Gallery = () => {
 
     // Extract unique item instances and filter out test/deleted items
     const mergedList = Array.from(new Set(uniqueMap.values()));
-    const activeItems = mergedList.filter(item => {
+    let activeItems = mergedList.filter(item => {
       if (!item || !item.title) return false;
       const titleLower = item.title.trim().toLowerCase();
       if (titleLower === 'swdfghj' || titleLower.includes('swdfghj') || titleLower.includes('xzcvbn')) return false;
@@ -82,6 +82,16 @@ const Gallery = () => {
       if (deletedIds.includes(item.title)) return false;
       return true;
     });
+
+    // Auto-heal: If stale localStorage deletion array wiped gallery items, restore from Supabase/defaults
+    if (activeItems.length === 0 && mergedList.length > 0) {
+      try { localStorage.removeItem('grey_area_deleted_gallery_ids'); } catch (e) {}
+      activeItems = mergedList.filter(item => {
+        if (!item || !item.title) return false;
+        const titleLower = item.title.trim().toLowerCase();
+        return !(titleLower === 'swdfghj' || titleLower.includes('swdfghj') || titleLower.includes('xzcvbn'));
+      });
+    }
 
     setGalleryItems(activeItems);
     setLoading(false);

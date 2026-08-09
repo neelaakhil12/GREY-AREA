@@ -424,30 +424,30 @@ const Home = () => {
             </Link>
           </div>
 
-          {/* Gallery Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Gallery Grid - Cleanly Spaced Portfolio Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {featuredItems.map((item, idx) => (
               <div 
                 key={item.id || idx}
-                data-aos="zoom-in"
+                data-aos="fade-up"
                 data-aos-delay={(idx + 1) * 100}
                 onClick={() => handleOpenLightbox(item, idx)}
-                className="group relative rounded-xl overflow-hidden bg-grey-card border border-grey-border cursor-pointer h-64 sm:h-72 aspect-[4/3]"
+                className="group relative rounded-2xl overflow-hidden bg-grey-card border border-grey-border cursor-pointer aspect-[4/3] shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5"
               >
                 <img 
                   src={item.imageUrl} 
                   alt={item.title} 
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-90 group-hover:opacity-100 transition-opacity p-5 flex flex-col justify-end">
-                  <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mb-1">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90 group-hover:opacity-100 transition-opacity p-5 sm:p-6 flex flex-col justify-end">
+                  <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-widest mb-1.5">
                     {item.category}
                   </span>
-                  <h4 className="font-heading font-bold text-base text-white group-hover:text-gray-200 transition">
+                  <h4 className="font-heading font-bold text-sm sm:text-base text-white leading-snug group-hover:text-gray-200 transition line-clamp-2">
                     {item.title}
                   </h4>
-                  <div className="mt-3 flex items-center space-x-1.5 text-xs text-gray-400">
-                    <Eye className="w-3.5 h-3.5" />
+                  <div className="mt-2.5 flex items-center space-x-1.5 text-xs text-gray-300 font-medium">
+                    <Eye className="w-3.5 h-3.5 text-emerald-400" />
                     <span>Click to view larger</span>
                   </div>
                 </div>

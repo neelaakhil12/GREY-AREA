@@ -30,7 +30,7 @@ const Admin = () => {
   
   // Gallery Management State
   const [galleryItems, setGalleryItems] = useState([]);
-  const [mediaTypeFilter, setMediaTypeFilter] = useState('image');
+  const [mediaTypeFilter, setMediaTypeFilter] = useState('All');
   const [galleryCategoryFilter, setGalleryCategoryFilter] = useState('All');
 
   // Subscribers State
@@ -227,15 +227,24 @@ const Admin = () => {
         if (storedDelEmails) deletedEmails = JSON.parse(storedDelEmails);
       } catch (e) {}
 
-      // Merge & deduplicate subscribers, filtering out permanently deleted emails
+      // Merge & deduplicate subscribers
       const combinedSubs = [...localSubscribers, ...apiSubscribers, ...supaSubscribers];
       const subMap = new Map();
       combinedSubs.forEach(s => {
-        if (s && s.email && !subMap.has(s.email.toLowerCase()) && !deletedEmails.includes(s.email.toLowerCase())) {
+        if (s && s.email && !subMap.has(s.email.toLowerCase())) {
           subMap.set(s.email.toLowerCase(), s);
         }
       });
-      const allSubscribers = Array.from(subMap.values());
+      
+      let allSubscribers = Array.from(subMap.values()).filter(s => {
+        return !deletedEmails.includes(s.email.toLowerCase());
+      });
+
+      // Auto-heal: If stale localStorage deletion array wiped subscribers, restore from Supabase/API
+      if (allSubscribers.length === 0 && subMap.size > 0) {
+        try { localStorage.removeItem('grey_area_deleted_subscriber_emails'); } catch (e) {}
+        allSubscribers = Array.from(subMap.values());
+      }
 
       // 4. Merge & deduplicate gallery items
       const combined = [...localCustom, ...supaGalleryItems, ...apiItems, ...initialGalleryItems];
@@ -252,7 +261,7 @@ const Admin = () => {
       });
 
       const mergedList = Array.from(new Set(uniqueMap.values()));
-      const activeItems = mergedList.filter(item => {
+      let activeItems = mergedList.filter(item => {
         if (!item || !item.title) return false;
         const titleLower = item.title.trim().toLowerCase();
         if (titleLower === 'swdfghj' || titleLower.includes('swdfghj') || titleLower.includes('xzcvbn')) return false;
@@ -260,6 +269,16 @@ const Admin = () => {
         if (deletedIds.includes(item.title)) return false;
         return true;
       });
+
+      // Auto-heal: If stale localStorage deletion array wiped gallery items, restore from Supabase/defaults
+      if (activeItems.length === 0 && mergedList.length > 0) {
+        try { localStorage.removeItem('grey_area_deleted_gallery_ids'); } catch (e) {}
+        activeItems = mergedList.filter(item => {
+          if (!item || !item.title) return false;
+          const titleLower = item.title.trim().toLowerCase();
+          return !(titleLower === 'swdfghj' || titleLower.includes('swdfghj') || titleLower.includes('xzcvbn'));
+        });
+      }
 
       setGalleryItems(activeItems);
       setEnquiries(apiEnquiries);
