@@ -164,6 +164,10 @@ const Admin = () => {
         fetch('/api/newsletter/subscribers').then(r => r.json()).catch(() => ({ success: false }))
       ]);
 
+      let apiItems = (galRes && galRes.success && Array.isArray(galRes.data)) ? galRes.data : [];
+      let apiEnquiries = (enqRes && enqRes.success && Array.isArray(enqRes.data)) ? enqRes.data : [];
+      let apiSubscribers = (subRes && subRes.success && Array.isArray(subRes.data)) ? subRes.data : [];
+
       // 1b. Direct Supabase REST API gallery & subscriber query for Vercel production environment
       let supaSubscribers = [];
       let supaGalleryItems = [];
