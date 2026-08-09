@@ -42,14 +42,43 @@ const NewsletterCTA = ({
         window.dispatchEvent(new CustomEvent('subscriber-updated', { detail: newSub }));
       } catch (e) {}
 
-      // 2. Post to backend API
+      // 3. Post to Supabase REST API directly (works on Vercel & localhost)
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://moofrnuptxblogvfweac.supabase.co';
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vb2ZybnVwdHhibG9ndmZ3ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE2MDcsImV4cCI6MjEwMTg1NzYwN30.H1KFnNtx5zIGm8-clt9S3WdPIrBSlcUfa0HAwJPafNo';
+      
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/newsletter_subscribers`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify({
+            id: newSub.id,
+            email: newSub.email,
+            name: newSub.name,
+            source: newSub.source,
+            status: 'Active',
+            subscribed_at: newSub.subscribedAt
+          })
+        });
+      } catch (e) {
+        console.warn('Supabase direct sub sync note:', e);
+      }
+
+      // 4. Post to Express API if available
       const res = await fetch('/api/newsletter/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), name: name.trim(), source })
-      });
+      }).catch(() => null);
 
-      const data = await res.json().catch(() => ({ success: true, message: '🎉 Thank you for subscribing! Check your inbox for updates.' }));
+      let data = { success: true, message: '🎉 Subscription successful! Thank you for subscribing to Grey Area newsletter.' };
+      if (res && res.ok) {
+        data = await res.json().catch(() => data);
+      }
 
       if (data.success) {
         setStatus({

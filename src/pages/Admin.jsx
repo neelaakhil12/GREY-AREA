@@ -168,6 +168,35 @@ const Admin = () => {
       let apiEnquiries = (enqRes.success && Array.isArray(enqRes.data)) ? enqRes.data : [];
       let apiSubscribers = (subRes.success && Array.isArray(subRes.data)) ? subRes.data : [];
 
+      // 1b. Direct Supabase REST API subscriber query for Vercel production environment
+      let supaSubscribers = [];
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://moofrnuptxblogvfweac.supabase.co';
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vb2ZybnVwdHhibG9ndmZ3ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE2MDcsImV4cCI6MjEwMTg1NzYwN30.H1KFnNtx5zIGm8-clt9S3WdPIrBSlcUfa0HAwJPafNo';
+
+      try {
+        const supaRes = await fetch(`${SUPABASE_URL}/rest/v1/newsletter_subscribers?select=*`, {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+        if (supaRes.ok) {
+          const supaData = await supaRes.json();
+          if (Array.isArray(supaData)) {
+            supaSubscribers = supaData.map(s => ({
+              id: s.id,
+              email: s.email,
+              name: s.name,
+              source: s.source,
+              status: s.status || 'Active',
+              subscribedAt: s.subscribed_at
+            }));
+          }
+        }
+      } catch (e) {
+        console.warn('Supabase direct fetch note:', e);
+      }
+
       // 2. Read local storage custom uploads, subscribers & deleted IDs
       let localCustom = [];
       let deletedIds = [];
@@ -189,7 +218,7 @@ const Admin = () => {
       } catch (e) {}
 
       // Merge & deduplicate subscribers, filtering out permanently deleted emails
-      const combinedSubs = [...localSubscribers, ...apiSubscribers];
+      const combinedSubs = [...localSubscribers, ...apiSubscribers, ...supaSubscribers];
       const subMap = new Map();
       combinedSubs.forEach(s => {
         if (s && s.email && !subMap.has(s.email.toLowerCase()) && !deletedEmails.includes(s.email.toLowerCase())) {
@@ -476,8 +505,20 @@ const Admin = () => {
       }));
       showToast('🗑️ Subscriber deleted permanently!');
 
-      // 4. Delete from Express API and Supabase
+      // 4. Delete from Express API and Supabase REST API directly (works on Vercel)
       await fetch(`/api/newsletter/subscribers/${id}`, { method: 'DELETE' }).catch(() => ({}));
+      
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://moofrnuptxblogvfweac.supabase.co';
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vb2ZybnVwdHhibG9ndmZ3ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE2MDcsImV4cCI6MjEwMTg1NzYwN30.H1KFnNtx5zIGm8-clt9S3WdPIrBSlcUfa0HAwJPafNo';
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/newsletter_subscribers?email=eq.${encodeURIComponent(targetEmail)}`, {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        });
+      } catch (e) {}
     } catch (err) {
       console.error('Delete subscriber error:', err);
     }
