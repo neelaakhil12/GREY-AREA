@@ -58,6 +58,12 @@ const Admin = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
+      // One-time cleanup: clear localStorage gallery data so Supabase is always the truth.
+      // This ensures items deleted from Supabase don't persist in localStorage.
+      try {
+        localStorage.removeItem('grey_area_custom_gallery');
+        localStorage.removeItem('grey_area_deleted_gallery_ids');
+      } catch (e) {}
       fetchDashboardData();
       const handleSubUpdate = () => fetchDashboardData();
       window.addEventListener('subscriber-updated', handleSubUpdate);
@@ -256,7 +262,14 @@ const Admin = () => {
       }
 
       // 4. Merge & deduplicate gallery items
-      const combined = [...supaGalleryItems, ...localCustom, ...apiItems, ...initialGalleryItems];
+      //    Source priority: Supabase > localCustom > API
+      //    initialGalleryItems are NOT included — Supabase is the single source of truth.
+      //    If it's deleted from Supabase, it stays deleted.
+      const hasRealGalleryData = supaGalleryItems.length > 0 || apiItems.length > 0;
+      const combined = hasRealGalleryData
+        ? [...supaGalleryItems, ...localCustom, ...apiItems]
+        : [...supaGalleryItems, ...localCustom, ...apiItems, ...initialGalleryItems];
+
       const uniqueMap = new Map();
       combined.forEach(item => {
         if (item && item.title) {
@@ -270,26 +283,17 @@ const Admin = () => {
       });
 
       const mergedList = Array.from(new Set(uniqueMap.values()));
-      
-      // Clean default item IDs from deletedIds list so core portfolio showcase is never wiped
-      const defaultIds = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8'];
-      const defaultTitles = initialGalleryItems.map(i => i.title.trim().toLowerCase());
-      const filteredDeletedIds = deletedIds.filter(id => !defaultIds.includes(id) && !defaultTitles.includes(String(id).trim().toLowerCase()));
+
+      // Apply deleted IDs filter — no items are exempt from deletion.
+      // Do NOT restore defaults if the list becomes empty; an empty gallery is valid.
+      const filteredDeletedIds = deletedIds; // all deletes are permanent
 
       let activeItems = mergedList.filter(item => {
         if (!item || !item.title) return false;
-        const titleLower = item.title.trim().toLowerCase();
-        if (titleLower === 'swdfghj' || titleLower.includes('swdfghj') || titleLower.includes('xzcvbn')) return false;
         if (filteredDeletedIds.includes(item.id)) return false;
         if (filteredDeletedIds.includes(item.title)) return false;
         return true;
       });
-
-      // Absolute Guarantee: If gallery items count is 0, restore default portfolio showcase!
-      if (activeItems.length === 0) {
-        try { localStorage.removeItem('grey_area_deleted_gallery_ids'); } catch (e) {}
-        activeItems = initialGalleryItems;
-      }
 
       setGalleryItems(activeItems);
       setEnquiries(apiEnquiries);
@@ -323,7 +327,7 @@ const Admin = () => {
       title: galleryForm.title,
       category: galleryForm.mediaType === 'video' ? 'Videos' : 'Photos',
       mediaType: galleryForm.mediaType || 'image',
-      imageUrl: galleryForm.imageUrl || 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80',
+      imageUrl: galleryForm.imageUrl || '',
       videoUrl: galleryForm.videoUrl || '',
       description: galleryForm.description || '',
       createdAt: new Date().toISOString()
@@ -517,40 +521,60 @@ const Admin = () => {
 
   // Delete Gallery Item Handler
   const handleDeleteGalleryItem = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this gallery item from public showcase?')) return;
+    if (!window.confirm('Are you sure you want to permanently delete this item from all sources?')) return;
     try {
       const itemToDelete = galleryItems.find(i => i.id === id);
       const titleToDelete = itemToDelete ? itemToDelete.title : '';
+      const imageUrl = itemToDelete?.imageUrl || '';
+      const videoUrl = itemToDelete?.videoUrl || '';
 
-      // Save ID & Title to deleted IDs list in localStorage
+      // 1. Remove from React state immediately (optimistic update)
+      setGalleryItems(prev => prev.filter(item => item.id !== id && item.title !== titleToDelete));
+
+      // 2. Remove from localStorage custom gallery
+      const existingStored = JSON.parse(localStorage.getItem('grey_area_custom_gallery') || '[]');
+      localStorage.setItem('grey_area_custom_gallery', JSON.stringify(
+        existingStored.filter(item => item.id !== id && item.title !== titleToDelete)
+      ));
+
+      // 3. Save to deleted IDs list in localStorage (prevents re-appearing from any fallback)
       const deletedIds = JSON.parse(localStorage.getItem('grey_area_deleted_gallery_ids') || '[]');
       if (id && !deletedIds.includes(id)) deletedIds.push(id);
       if (titleToDelete && !deletedIds.includes(titleToDelete)) deletedIds.push(titleToDelete);
       localStorage.setItem('grey_area_deleted_gallery_ids', JSON.stringify(deletedIds));
 
-      setGalleryItems(prev => prev.filter(item => item.id !== id && item.title !== titleToDelete));
-      const existingStored = JSON.parse(localStorage.getItem('grey_area_custom_gallery') || '[]');
-      const updatedStored = existingStored.filter(item => item.id !== id && item.title !== titleToDelete);
-      localStorage.setItem('grey_area_custom_gallery', JSON.stringify(updatedStored));
+      // 4. Delete from Express backend (which handles db.json + Supabase + Cloudinary)
+      const apiRes = await fetch(`/api/gallery/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl, videoUrl })
+      }).catch(() => null);
+      if (apiRes) {
+        const apiData = await apiRes.json().catch(() => ({}));
+        console.log('[Delete API]', apiData.message || apiRes.status);
+      }
 
-      // Delete from Express API and Supabase REST API directly (works on Vercel)
-      await fetch(`/api/gallery/${id}`, { method: 'DELETE' }).catch(() => ({}));
-      
+      // 5. Also delete directly from Supabase REST API (works on Vercel where Express isn't available)
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://moofrnuptxblogvfweac.supabase.co';
       const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vb2ZybnVwdHhibG9ndmZ3ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE2MDcsImV4cCI6MjEwMTg1NzYwN30.H1KFnNtx5zIGm8-clt9S3WdPIrBSlcUfa0HAwJPafNo';
       try {
-        await fetch(`${SUPABASE_URL}/rest/v1/gallery_items?id=eq.${id}`, {
+        const supaRes = await fetch(`${SUPABASE_URL}/rest/v1/gallery_items?id=eq.${id}`, {
           method: 'DELETE',
           headers: {
             'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Prefer': 'return=minimal'
           }
         });
-      } catch (e) {}
+        console.log(`[Supabase Direct Delete] Status: ${supaRes.status} for id: ${id}`);
+      } catch (e) {
+        console.warn('Supabase direct delete error:', e);
+      }
 
-      showToast('🗑️ Gallery item deleted successfully!');
+      showToast('🗑️ Gallery item permanently deleted!');
     } catch (err) {
       console.error('Delete gallery item error:', err);
+      showToast('❌ Delete failed. Please try again.');
     }
   };
 

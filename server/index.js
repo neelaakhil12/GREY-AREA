@@ -215,12 +215,14 @@ app.post('/api/admin/login', (req, res) => {
 app.get('/api/gallery', async (req, res) => {
   try {
     const { category } = req.query;
-    let items = db.getGalleryItems(category);
 
+    // Supabase is the authoritative source for gallery items.
+    // If Supabase has data, return ONLY those items — do NOT merge with db.json
+    // which can contain stale/deleted items.
     try {
-      const { data: supaItems } = await supabase.from('gallery_items').select('*');
-      if (supaItems && supaItems.length > 0) {
-        const formattedSupa = supaItems.map(item => ({
+      const { data: supaItems, error } = await supabase.from('gallery_items').select('*').order('created_at', { ascending: false });
+      if (!error && supaItems && supaItems.length > 0) {
+        let formatted = supaItems.map(item => ({
           id: item.id,
           title: item.title,
           category: item.category || 'Photos',
@@ -230,25 +232,25 @@ app.get('/api/gallery', async (req, res) => {
           description: item.description || '',
           createdAt: item.created_at
         }));
-
-        const itemMap = new Map();
-        [...formattedSupa, ...items].forEach(i => {
-          if (i && (i.id || i.title)) {
-            const key = i.id || i.title;
-            if (!itemMap.has(key)) itemMap.set(key, i);
-          }
-        });
-        items = Array.from(itemMap.values());
+        if (category && category !== 'All') {
+          formatted = formatted.filter(i => i.category.toLowerCase() === category.toLowerCase());
+        }
+        return res.json({ success: true, data: formatted });
       }
     } catch (e) {
       console.warn('Supabase gallery read note:', e);
     }
 
-    res.json({ success: true, data: items });
+    // Fallback: local db.json (only Cloudinary items, not placeholder Unsplash ones)
+    const localItems = db.getGalleryItems(category).filter(i =>
+      i.imageUrl?.includes('cloudinary.com') || i.videoUrl?.includes('cloudinary.com')
+    );
+    res.json({ success: true, data: localItems });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error fetching gallery items' });
   }
 });
+
 
 app.post('/api/gallery', async (req, res) => {
   try {
@@ -303,17 +305,45 @@ app.put('/api/gallery/:id', (req, res) => {
 app.delete('/api/gallery/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const { publicId, imageUrl, videoUrl } = req.body || {};
+
+    // 1. Delete from local db.json
     db.deleteGalleryItem(id);
 
-    // Delete from Supabase cloud database
+    // 2. Delete from Supabase cloud database
     try {
-      await supabase.from('gallery_items').delete().eq('id', id);
+      const { error: supaErr } = await supabase.from('gallery_items').delete().eq('id', id);
+      if (supaErr) {
+        console.error('[Supabase Delete Error]', supaErr);
+      } else {
+        console.log(`[Supabase Delete] Item ${id} deleted successfully.`);
+      }
     } catch (e) {
-      console.warn('Supabase gallery item delete note:', e);
+      console.warn('Supabase gallery item delete error:', e);
     }
 
-    res.json({ success: true, message: 'Gallery item removed permanently.' });
+    // 3. Delete from Cloudinary if publicId provided or can be extracted from URL
+    let cloudPublicId = publicId;
+    if (!cloudPublicId && (imageUrl || videoUrl)) {
+      const url = videoUrl || imageUrl || '';
+      // Extract public ID from Cloudinary URL: .../upload/v.../folder/filename.ext
+      const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
+      if (match) cloudPublicId = match[1];
+    }
+    if (cloudPublicId) {
+      try {
+        const isVideo = (videoUrl || '').includes('cloudinary.com') || cloudPublicId.includes('/video/');
+        const resourceType = isVideo ? 'video' : 'image';
+        const result = await cloudinary.uploader.destroy(cloudPublicId, { resource_type: resourceType });
+        console.log(`[Cloudinary Delete] publicId: ${cloudPublicId} | result: ${result.result}`);
+      } catch (e) {
+        console.warn('Cloudinary delete error:', e.message);
+      }
+    }
+
+    res.json({ success: true, message: 'Gallery item removed permanently from all sources.' });
   } catch (error) {
+    console.error('Gallery delete server error:', error);
     res.status(500).json({ success: false, message: 'Server error deleting gallery item' });
   }
 });

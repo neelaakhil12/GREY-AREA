@@ -5,8 +5,8 @@ import LightboxModal from '../components/LightboxModal';
 import { initialGalleryItems } from '../data/initialGallery';
 
 const Gallery = () => {
-  const [galleryItems, setGalleryItems] = useState(initialGalleryItems);
-  const [loading, setLoading] = useState(false);
+  const [galleryItems, setGalleryItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -15,25 +15,20 @@ const Gallery = () => {
     setLoading(true);
     let apiItems = [];
     let supaItems = [];
-    let localCustomItems = [];
+
+    // Clear stale localStorage gallery data — Supabase is the source of truth
+    try {
+      localStorage.removeItem('grey_area_custom_gallery');
+      localStorage.removeItem('grey_area_deleted_gallery_ids');
+    } catch (e) {}
 
     try {
-      // 1. Fetch local Express API items if available
-      try {
-        const res = await fetch('/api/gallery');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-            apiItems = data.data;
-          }
-        }
-      } catch (err) {}
-
-      // 2. Query Supabase REST API directly for Vercel production deployment
+      // 1. Query Supabase REST API directly — this is the single source of truth
+      //    and works on BOTH localhost and Vercel production.
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://moofrnuptxblogvfweac.supabase.co';
       const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vb2ZybnVwdHhibG9ndmZ3ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE2MDcsImV4cCI6MjEwMTg1NzYwN30.H1KFnNtx5zIGm8-clt9S3WdPIrBSlcUfa0HAwJPafNo';
       try {
-        const supaRes = await fetch(`${SUPABASE_URL}/rest/v1/gallery_items?select=*`, {
+        const supaRes = await fetch(`${SUPABASE_URL}/rest/v1/gallery_items?select=*&order=created_at.desc`, {
           headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
         });
         if (supaRes.ok) {
@@ -53,55 +48,39 @@ const Gallery = () => {
         }
       } catch (e) {}
 
-      // 3. Read client-saved custom uploads
+      // 2. Also try the local Express API as a secondary source (localhost only)
       try {
-        const stored = localStorage.getItem('grey_area_custom_gallery');
-        if (stored) localCustomItems = JSON.parse(stored);
-      } catch (e) {}
+        const res = await fetch('/api/gallery');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+            // Only use API items that have real Cloudinary URLs, skip placeholder Unsplash ones
+            apiItems = data.data.filter(item =>
+              item.imageUrl && (
+                item.imageUrl.includes('cloudinary.com') ||
+                item.videoUrl?.includes('cloudinary.com')
+              )
+            );
+          }
+        }
+      } catch (err) {}
 
-      // 4. Merge: custom uploads + supa items + api items + initial defaults
-      const combined = [...localCustomItems, ...supaItems, ...apiItems, ...initialGalleryItems];
+      // 2. Merge: Supabase items take priority. API items (Cloudinary only) fill any gaps.
+      //    If both are empty, show empty gallery — no placeholder content.
+      const combined = [...supaItems, ...apiItems];
+
+      // Deduplicate by ID
       const uniqueMap = new Map();
       combined.forEach(item => {
-        if (item && item.title) {
-          const titleKey = item.title.trim().toLowerCase();
-          const idKey = item.id || titleKey;
-          if (!uniqueMap.has(idKey) && !uniqueMap.has(titleKey)) {
-            uniqueMap.set(idKey, item);
-            uniqueMap.set(titleKey, item);
-          }
+        if (item && item.id && !uniqueMap.has(item.id)) {
+          uniqueMap.set(item.id, item);
         }
       });
 
-      // Read deleted IDs/Titles list
-      let deletedIds = [];
-      try {
-        const delStored = localStorage.getItem('grey_area_deleted_gallery_ids');
-        if (delStored) deletedIds = JSON.parse(delStored);
-      } catch (e) {}
-
-      const defaultIds = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8'];
-      const defaultTitles = initialGalleryItems.map(i => i.title.trim().toLowerCase());
-      const filteredDeletedIds = deletedIds.filter(id => !defaultIds.includes(id) && !defaultTitles.includes(String(id).trim().toLowerCase()));
-
-      const mergedList = Array.from(new Set(uniqueMap.values()));
-      let activeItems = mergedList.filter(item => {
-        if (!item || !item.title) return false;
-        const titleLower = item.title.trim().toLowerCase();
-        if (titleLower === 'swdfghj' || titleLower.includes('swdfghj') || titleLower.includes('xzcvbn')) return false;
-        if (filteredDeletedIds.includes(item.id)) return false;
-        if (filteredDeletedIds.includes(item.title)) return false;
-        return true;
-      });
-
-      if (activeItems.length === 0) {
-        activeItems = initialGalleryItems;
-      }
-
-      setGalleryItems(activeItems);
+      setGalleryItems(Array.from(uniqueMap.values()));
     } catch (err) {
       console.error('Gallery load error:', err);
-      setGalleryItems(initialGalleryItems);
+      setGalleryItems([]);
     } finally {
       setLoading(false);
     }

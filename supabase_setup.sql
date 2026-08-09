@@ -71,12 +71,7 @@ CREATE POLICY "Allow anonymous delete access to newsletter subscribers"
     USING (true);
 
 -- ====================================================================
--- Initial Default Gallery Data Seed (Photos & Videos)
+-- NOTE: Do NOT seed placeholder/test gallery items here.
+-- All gallery items should be added through the Admin panel only,
+-- using real media files uploaded to Cloudinary.
 -- ====================================================================
-INSERT INTO public.gallery_items (id, title, category, media_type, image_url, video_url, description)
-VALUES 
-    ('g1', 'Brand Story: Elevate Tech Nigeria', 'Brand Videos', 'video', 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80', 'https://res.cloudinary.com/demo/video/upload/elephants.mp4', 'Cinematic commercial highlighting tech startup journey and digital transformation in Lagos.'),
-    ('g2', 'National Business Leadership Summit', 'Corporate', 'image', 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80', '', 'Comprehensive corporate event coverage with multicam video production and keynotes.'),
-    ('g3', 'Afro-Creative Fashion Showcase', 'Events', 'image', 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=800&q=80', '', 'High-energy event recap featuring runway highlights and sound design.'),
-    ('g4', 'Luxury Watch Commercial Shoot', 'Product Shoots', 'image', 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80', '', 'Macro studio photography and slow-motion video highlight for luxury wristwear.')
-ON CONFLICT (id) DO NOTHING;

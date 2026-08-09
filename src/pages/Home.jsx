@@ -54,45 +54,79 @@ const Home = () => {
   }, [typewrittenText, isDeleting, loopNum]);
 
   useEffect(() => {
-    fetch('/api/gallery')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setFeaturedItems(data.data.slice(0, 4));
-        }
-      })
-      .catch(() => {
-        setFeaturedItems([
-          {
-            id: "g1",
-            title: "Brand Story: Elevate Tech Nigeria",
-            category: "Brand Videos",
-            imageUrl: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80",
-            description: "Cinematic commercial highlighting tech startup journey."
-          },
-          {
-            id: "g2",
-            title: "National Leadership Summit",
-            category: "Corporate",
-            imageUrl: "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80",
-            description: "Comprehensive corporate event coverage with multicam video production."
-          },
-          {
-            id: "g3",
-            title: "Afro-Creative Fashion Showcase",
-            category: "Events",
-            imageUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=800&q=80",
-            description: "High-energy event recap featuring runway highlights."
-          },
-          {
-            id: "g4",
-            title: "Luxury Watch Commercial Shoot",
-            category: "Product Shoots",
-            imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80",
-            description: "Studio photography and slow-motion video highlight."
+    const loadFeatured = async () => {
+      // 1. Try Supabase first (works on both localhost and Vercel)
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://moofrnuptxblogvfweac.supabase.co';
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vb2ZybnVwdHhibG9ndmZ3ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE2MDcsImV4cCI6MjEwMTg1NzYwN30.H1KFnNtx5zIGm8-clt9S3WdPIrBSlcUfa0HAwJPafNo';
+      try {
+        const supaRes = await fetch(`${SUPABASE_URL}/rest/v1/gallery_items?select=*&order=created_at.desc&limit=4`, {
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+        });
+        if (supaRes.ok) {
+          const supaData = await supaRes.json();
+          if (Array.isArray(supaData) && supaData.length > 0) {
+            setFeaturedItems(supaData.slice(0, 4).map(g => ({
+              id: g.id,
+              title: g.title,
+              category: g.category,
+              mediaType: g.media_type || g.mediaType || (g.video_url ? 'video' : 'image'),
+              imageUrl: g.image_url || g.imageUrl,
+              videoUrl: g.video_url || g.videoUrl || '',
+              description: g.description || ''
+            })));
+            return;
           }
-        ]);
-      });
+        }
+      } catch (e) {}
+
+      // 2. Fallback to local Express API (localhost only)
+      try {
+        const res = await fetch('/api/gallery');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          const cloudinaryItems = data.data.filter(item =>
+            item.imageUrl?.includes('cloudinary.com') || item.videoUrl?.includes('cloudinary.com')
+          );
+          if (cloudinaryItems.length > 0) {
+            setFeaturedItems(cloudinaryItems.slice(0, 4));
+            return;
+          }
+        }
+      } catch (e) {}
+
+      // 3. Last resort: hardcoded placeholder images
+      setFeaturedItems([
+        {
+          id: "g1",
+          title: "Brand Story: Elevate Tech Nigeria",
+          category: "Brand Videos",
+          imageUrl: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80",
+          description: "Cinematic commercial highlighting tech startup journey."
+        },
+        {
+          id: "g2",
+          title: "National Leadership Summit",
+          category: "Corporate",
+          imageUrl: "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80",
+          description: "Comprehensive corporate event coverage with multicam video production."
+        },
+        {
+          id: "g3",
+          title: "Afro-Creative Fashion Showcase",
+          category: "Events",
+          imageUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=800&q=80",
+          description: "High-energy event recap featuring runway highlights."
+        },
+        {
+          id: "g4",
+          title: "Luxury Watch Commercial Shoot",
+          category: "Product Shoots",
+          imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80",
+          description: "Studio photography and slow-motion video highlight."
+        }
+      ]);
+    };
+    loadFeatured();
   }, []);
 
   const whyChoosePoints = [

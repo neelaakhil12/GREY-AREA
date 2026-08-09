@@ -84,7 +84,7 @@ class Database {
     if (!fs.existsSync(dbFilePath)) {
       const initialData = {
         enquiries: [],
-        gallery_items: initialGalleryItems,
+        gallery_items: [], // Gallery is managed via Supabase; no hardcoded seed data
         subscribers: []
       };
       fs.writeFileSync(dbFilePath, JSON.stringify(initialData, null, 2), 'utf-8');
