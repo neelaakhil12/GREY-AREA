@@ -79,7 +79,7 @@ const Home = () => {
         }
       } catch (e) {}
 
-      // 2. Fallback to local Express API (localhost only)
+      // 2. Fallback to local Express API (localhost only) — Cloudinary items only
       try {
         const res = await fetch('/api/gallery');
         const data = await res.json();
@@ -94,37 +94,8 @@ const Home = () => {
         }
       } catch (e) {}
 
-      // 3. Last resort: hardcoded placeholder images
-      setFeaturedItems([
-        {
-          id: "g1",
-          title: "Brand Story: Elevate Tech Nigeria",
-          category: "Brand Videos",
-          imageUrl: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80",
-          description: "Cinematic commercial highlighting tech startup journey."
-        },
-        {
-          id: "g2",
-          title: "National Leadership Summit",
-          category: "Corporate",
-          imageUrl: "https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80",
-          description: "Comprehensive corporate event coverage with multicam video production."
-        },
-        {
-          id: "g3",
-          title: "Afro-Creative Fashion Showcase",
-          category: "Events",
-          imageUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=800&q=80",
-          description: "High-energy event recap featuring runway highlights."
-        },
-        {
-          id: "g4",
-          title: "Luxury Watch Commercial Shoot",
-          category: "Product Shoots",
-          imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80",
-          description: "Studio photography and slow-motion video highlight."
-        }
-      ]);
+      // No real items found — show empty state (no hardcoded placeholders)
+      setFeaturedItems([]);
     };
     loadFeatured();
   }, []);
@@ -459,6 +430,22 @@ const Home = () => {
           </div>
 
           {/* Gallery Grid - Cleanly Spaced Portfolio Cards */}
+          {featuredItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-4">
+                <Camera className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-400 text-base font-medium mb-1">No featured projects yet</p>
+              <p className="text-gray-500 text-sm mb-6">Upload your first project from the Admin panel to showcase it here.</p>
+              <Link
+                to="/gallery"
+                className="inline-flex items-center space-x-2 bg-white text-black font-semibold text-sm px-5 py-2.5 rounded-lg hover:bg-gray-200 transition"
+              >
+                <span>View Gallery</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {featuredItems.map((item, idx) => (
               <div 
@@ -488,6 +475,7 @@ const Home = () => {
               </div>
             ))}
           </div>
+          )}
 
         </div>
       </section>
