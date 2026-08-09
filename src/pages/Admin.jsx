@@ -632,17 +632,17 @@ const Admin = () => {
           
           {/* Top Brand Navigation Bar */}
           <div className="flex items-center justify-between border-b border-grey-border/60 pb-4">
-            <Link to="/" className="flex items-center space-x-3 group">
+            <Link to="/" className="flex items-center space-x-2.5 sm:space-x-3 group">
               <img 
                 src="/logo.png" 
                 alt="Grey Area Logo" 
-                className="h-10 sm:h-12 w-auto object-contain shrink-0 filter drop-shadow" 
+                className="h-9 sm:h-12 w-auto object-contain shrink-0 filter drop-shadow" 
               />
               <div className="flex flex-col">
-                <span className="font-heading font-black text-lg sm:text-xl tracking-wider text-white leading-tight">
+                <span className="font-heading font-black text-base sm:text-xl tracking-wider text-white leading-tight">
                   GREY AREA
                 </span>
-                <span className="text-[10px] tracking-widest text-emerald-400 font-bold uppercase leading-none mt-0.5">
+                <span className="text-[9px] sm:text-[10px] tracking-widest text-emerald-400 font-bold uppercase leading-none mt-0.5">
                   Admin Portal
                 </span>
               </div>
@@ -650,7 +650,7 @@ const Admin = () => {
 
             <Link 
               to="/" 
-              className="inline-flex items-center space-x-1.5 bg-grey-card hover:bg-grey-border border border-grey-border text-gray-300 hover:text-white px-3.5 py-2 rounded-xl text-xs font-bold transition"
+              className="inline-flex items-center space-x-1 bg-grey-card hover:bg-grey-border border border-grey-border text-gray-300 hover:text-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold transition shrink-0"
             >
               <span>← Back to Website</span>
             </Link>
@@ -941,9 +941,55 @@ const Admin = () => {
                 />
               </div>
 
-              {/* Subscribers Table */}
+              {/* Subscribers Table (Desktop & Tablet) + Mobile Cards */}
               <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
+                
+                {/* Mobile View: Clean Card List */}
+                <div className="block sm:hidden divide-y divide-gray-100">
+                  {filteredSubscribers.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">
+                      <Mail className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                      <p className="font-semibold text-sm">No subscribers found</p>
+                    </div>
+                  ) : (
+                    filteredSubscribers.map((sub) => (
+                      <div key={sub.id} className="p-4 space-y-2.5 hover:bg-gray-50 transition">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-bold text-black text-xs break-all">
+                            {sub.email}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteSubscriber(sub.id, sub.email)}
+                            className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition shrink-0"
+                            title="Delete subscriber"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between text-[11px] gap-2 text-gray-600">
+                          <div>
+                            Name: <span className="font-medium text-gray-900">{sub.name || 'Not specified'}</span>
+                          </div>
+                          <span className="px-2 py-0.5 bg-gray-100 rounded-full text-[10px] font-semibold text-gray-700">
+                            {sub.source || 'Website CTA'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] text-gray-400 pt-1 border-t border-gray-100">
+                          <span>Subscribed: {new Date(sub.subscribedAt).toLocaleDateString()}</span>
+                          <span className="inline-flex items-center space-x-1 text-emerald-700 font-bold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            <span>Active</span>
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Desktop & Tablet View: Full Table */}
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="bg-grey-subtle text-gray-600 font-bold uppercase tracking-wider border-b border-gray-200">
