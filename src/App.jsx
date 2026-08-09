@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 
+import SplashScreen from './components/SplashScreen';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
@@ -35,6 +36,7 @@ function App() {
 
   return (
     <Router>
+      <SplashScreen />
       <ScrollToTop />
       <div className="flex flex-col min-h-screen bg-white text-black overflow-x-hidden">
         <Navbar />
