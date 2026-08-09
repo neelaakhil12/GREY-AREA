@@ -14,87 +14,97 @@ const Gallery = () => {
   const loadGalleryData = async () => {
     setLoading(true);
     let apiItems = [];
-    try {
-      const res = await fetch('/api/gallery');
-      const data = await res.json();
-      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-        apiItems = data.data;
-      }
-    } catch (err) {
-      console.warn('API gallery load warning (using local fallback):', err);
-    }
-
-    // Query Supabase REST API directly for Vercel production deployment
     let supaItems = [];
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://moofrnuptxblogvfweac.supabase.co';
-    const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vb2ZybnVwdHhibG9ndmZ3ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE2MDcsImV4cCI6MjEwMTg1NzYwN30.H1KFnNtx5zIGm8-clt9S3WdPIrBSlcUfa0HAwJPafNo';
+    let localCustomItems = [];
+
     try {
-      const supaRes = await fetch(`${SUPABASE_URL}/rest/v1/gallery_items?select=*`, {
-        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+      // 1. Fetch local Express API items if available
+      try {
+        const res = await fetch('/api/gallery');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+            apiItems = data.data;
+          }
+        }
+      } catch (err) {}
+
+      // 2. Query Supabase REST API directly for Vercel production deployment
+      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://moofrnuptxblogvfweac.supabase.co';
+      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vb2ZybnVwdHhibG9ndmZ3ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYyODE2MDcsImV4cCI6MjEwMTg1NzYwN30.H1KFnNtx5zIGm8-clt9S3WdPIrBSlcUfa0HAwJPafNo';
+      try {
+        const supaRes = await fetch(`${SUPABASE_URL}/rest/v1/gallery_items?select=*`, {
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+        });
+        if (supaRes.ok) {
+          const supaData = await supaRes.json();
+          if (Array.isArray(supaData)) {
+            supaItems = supaData.map(g => ({
+              id: g.id,
+              title: g.title,
+              category: g.category,
+              mediaType: g.media_type || g.mediaType || (g.video_url ? 'video' : 'image'),
+              imageUrl: g.image_url || g.imageUrl,
+              videoUrl: g.video_url || g.videoUrl || '',
+              description: g.description || '',
+              createdAt: g.created_at || g.createdAt
+            }));
+          }
+        }
+      } catch (e) {}
+
+      // 3. Read client-saved custom uploads
+      try {
+        const stored = localStorage.getItem('grey_area_custom_gallery');
+        if (stored) localCustomItems = JSON.parse(stored);
+      } catch (e) {}
+
+      // 4. Merge: custom uploads + supa items + api items + initial defaults
+      const combined = [...localCustomItems, ...supaItems, ...apiItems, ...initialGalleryItems];
+      const uniqueMap = new Map();
+      combined.forEach(item => {
+        if (item && item.title) {
+          const titleKey = item.title.trim().toLowerCase();
+          const idKey = item.id || titleKey;
+          if (!uniqueMap.has(idKey) && !uniqueMap.has(titleKey)) {
+            uniqueMap.set(idKey, item);
+            uniqueMap.set(titleKey, item);
+          }
+        }
       });
-      if (supaRes.ok) {
-        const supaData = await supaRes.json();
-        if (Array.isArray(supaData)) {
-          supaItems = supaData.map(g => ({
-            id: g.id,
-            title: g.title,
-            category: g.category,
-            mediaType: g.media_type || g.mediaType || (g.video_url ? 'video' : 'image'),
-            imageUrl: g.image_url || g.imageUrl,
-            videoUrl: g.video_url || g.videoUrl || '',
-            description: g.description || '',
-            createdAt: g.created_at || g.createdAt
-          }));
-        }
-      }
-    } catch (e) {
-      console.warn('Supabase gallery load note:', e);
-    }
 
-    // Merge: custom uploads + supa items + api items + initial defaults (preventing duplicates by id & title)
-    const combined = [...localCustomItems, ...supaItems, ...apiItems, ...initialGalleryItems];
-    const uniqueMap = new Map();
-    combined.forEach(item => {
-      if (item && item.title) {
-        const titleKey = item.title.trim().toLowerCase();
-        const idKey = item.id || titleKey;
-        if (!uniqueMap.has(idKey) && !uniqueMap.has(titleKey)) {
-          uniqueMap.set(idKey, item);
-          uniqueMap.set(titleKey, item);
-        }
-      }
-    });
+      // Read deleted IDs/Titles list
+      let deletedIds = [];
+      try {
+        const delStored = localStorage.getItem('grey_area_deleted_gallery_ids');
+        if (delStored) deletedIds = JSON.parse(delStored);
+      } catch (e) {}
 
-    // Read deleted IDs/Titles list
-    let deletedIds = [];
-    try {
-      const delStored = localStorage.getItem('grey_area_deleted_gallery_ids');
-      if (delStored) deletedIds = JSON.parse(delStored);
-    } catch (e) {}
+      const defaultIds = ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7', 'g8'];
+      const defaultTitles = initialGalleryItems.map(i => i.title.trim().toLowerCase());
+      const filteredDeletedIds = deletedIds.filter(id => !defaultIds.includes(id) && !defaultTitles.includes(String(id).trim().toLowerCase()));
 
-    // Extract unique item instances and filter out test/deleted items
-    const mergedList = Array.from(new Set(uniqueMap.values()));
-    let activeItems = mergedList.filter(item => {
-      if (!item || !item.title) return false;
-      const titleLower = item.title.trim().toLowerCase();
-      if (titleLower === 'swdfghj' || titleLower.includes('swdfghj') || titleLower.includes('xzcvbn')) return false;
-      if (deletedIds.includes(item.id)) return false;
-      if (deletedIds.includes(item.title)) return false;
-      return true;
-    });
-
-    // Auto-heal: If stale localStorage deletion array wiped gallery items, restore from Supabase/defaults
-    if (activeItems.length === 0 && mergedList.length > 0) {
-      try { localStorage.removeItem('grey_area_deleted_gallery_ids'); } catch (e) {}
-      activeItems = mergedList.filter(item => {
+      const mergedList = Array.from(new Set(uniqueMap.values()));
+      let activeItems = mergedList.filter(item => {
         if (!item || !item.title) return false;
         const titleLower = item.title.trim().toLowerCase();
-        return !(titleLower === 'swdfghj' || titleLower.includes('swdfghj') || titleLower.includes('xzcvbn'));
+        if (titleLower === 'swdfghj' || titleLower.includes('swdfghj') || titleLower.includes('xzcvbn')) return false;
+        if (filteredDeletedIds.includes(item.id)) return false;
+        if (filteredDeletedIds.includes(item.title)) return false;
+        return true;
       });
-    }
 
-    setGalleryItems(activeItems);
-    setLoading(false);
+      if (activeItems.length === 0) {
+        activeItems = initialGalleryItems;
+      }
+
+      setGalleryItems(activeItems);
+    } catch (err) {
+      console.error('Gallery load error:', err);
+      setGalleryItems(initialGalleryItems);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

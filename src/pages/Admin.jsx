@@ -412,10 +412,38 @@ const Admin = () => {
     };
     reader.readAsDataURL(file);
 
-    // 2. Upload to Cloudinary API
-    const formData = new FormData();
-    formData.append('file', file);
+    // 2. Upload directly to Cloudinary (works on both Vercel and localhost)
+    const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'hmvqehoa';
+    const cloudinaryFormData = new FormData();
+    cloudinaryFormData.append('file', file);
+    cloudinaryFormData.append('upload_preset', 'grey_area_unsigned'); // unsigned preset
+    cloudinaryFormData.append('folder', 'grey_area');
 
+    try {
+      const cloudRes = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+        method: 'POST',
+        body: cloudinaryFormData
+      });
+      if (cloudRes.ok) {
+        const cloudData = await cloudRes.json();
+        if (cloudData.secure_url) {
+          const isVid = cloudData.resource_type === 'video' || isVideoFile;
+          setGalleryForm(prev => ({
+            ...prev,
+            imageUrl: isVid ? (prev.imageUrl && !prev.imageUrl.startsWith('data:') ? prev.imageUrl : cloudData.secure_url) : cloudData.secure_url,
+            videoUrl: isVid ? cloudData.secure_url : prev.videoUrl,
+            mediaType: isVid ? 'video' : 'image'
+          }));
+          showToast('☁️ Uploaded to Cloudinary cloud storage successfully!');
+          setUploadingFile(false);
+          return;
+        }
+      }
+    } catch (cloudErr) {
+      console.warn('Direct Cloudinary upload note, trying backend API:', cloudErr);
+    }
+
+    // 3. Fallback: try backend /api/upload if available (localhost)
     try {
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -435,8 +463,8 @@ const Admin = () => {
         }
       }
     } catch (err) {
-      console.warn('Cloudinary API upload background note (retaining local file media):', err);
-      showToast('📁 Media file loaded locally for gallery publication!');
+      // File is already loaded as DataURL - still usable
+      showToast('📁 Media file loaded. Saving to gallery now!');
     } finally {
       setUploadingFile(false);
     }
