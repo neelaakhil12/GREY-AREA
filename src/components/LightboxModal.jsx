@@ -50,13 +50,56 @@ const LightboxModal = ({ item, onClose, onPrev, onNext }) => {
       {/* Content Container */}
       <div className="max-w-4xl w-full bg-grey-nav rounded-xl border border-grey-border overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
         
-        {/* Image Display */}
-        <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden min-h-[220px] max-h-[60vh]">
-          <img
-            src={item.imageUrl}
-            alt={item.title}
-            className="w-full h-full object-contain max-h-[60vh]"
-          />
+        {/* Media Display (Image or Video) */}
+        <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden min-h-[260px] max-h-[60vh]">
+          {item.mediaType === 'video' || item.videoUrl ? (
+            item.videoUrl && (item.videoUrl.includes('youtube.com') || item.videoUrl.includes('youtu.be') || item.videoUrl.includes('vimeo.com')) ? (
+              <iframe
+                src={
+                  item.videoUrl.includes('youtube.com/watch?v=')
+                    ? item.videoUrl.replace('watch?v=', 'embed/')
+                    : item.videoUrl.includes('youtu.be/')
+                    ? item.videoUrl.replace('youtu.be/', 'youtube.com/embed/')
+                    : item.videoUrl.includes('vimeo.com/')
+                    ? item.videoUrl.replace('vimeo.com/', 'player.vimeo.com/video/')
+                    : item.videoUrl
+                }
+                title={item.title}
+                className="w-full h-full min-h-[300px] sm:min-h-[400px] border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            ) : item.videoUrl ? (
+              <video
+                src={item.videoUrl}
+                controls
+                autoPlay
+                className="w-full h-full object-contain max-h-[60vh]"
+                poster={item.imageUrl}
+              >
+                Your browser does not support video playback.
+              </video>
+            ) : (
+              <div className="relative w-full h-full flex items-center justify-center">
+                <img
+                  src={item.imageUrl}
+                  alt={item.title}
+                  className="w-full h-full object-contain max-h-[60vh] opacity-90"
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                  <div className="w-16 h-16 rounded-full bg-white/90 text-black flex items-center justify-center shadow-xl">
+                    <span className="font-bold text-xs uppercase">Video</span>
+                  </div>
+                </div>
+              </div>
+            )
+          ) : (
+            <img
+              src={item.imageUrl}
+              alt={item.title}
+              className="w-full h-full object-contain max-h-[60vh]"
+            />
+          )}
         </div>
 
         {/* Details Footer */}

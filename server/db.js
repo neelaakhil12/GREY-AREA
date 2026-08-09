@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { supabase } from './supabase.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -82,29 +83,9 @@ class Database {
   init() {
     if (!fs.existsSync(dbFilePath)) {
       const initialData = {
-        enquiries: [
-          {
-            id: "enq_1",
-            name: "Adesanya Ogunlesi",
-            email: "adesanya@example.com",
-            phone: "+2348012345678",
-            service: "Brand Video Production",
-            message: "We need a 2-minute brand story video for our fintech startup launch next month.",
-            status: "New",
-            created_at: new Date(Date.now() - 3600000 * 5).toISOString()
-          },
-          {
-            id: "enq_2",
-            name: "Ngozi Chukwu",
-            email: "ngozi.events@example.com",
-            phone: "+2348098765432",
-            service: "Event Coverage",
-            message: "Inquiring about full multi-cam event video and highlight reel for a 2-day conference in Abuja.",
-            status: "Contacted",
-            created_at: new Date(Date.now() - 3600000 * 24).toISOString()
-          }
-        ],
-        gallery_items: initialGalleryItems
+        enquiries: [],
+        gallery_items: initialGalleryItems,
+        subscribers: []
       };
       fs.writeFileSync(dbFilePath, JSON.stringify(initialData, null, 2), 'utf-8');
     }
@@ -113,15 +94,22 @@ class Database {
   read() {
     try {
       const raw = fs.readFileSync(dbFilePath, 'utf-8');
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (!parsed.subscribers) {
+        parsed.subscribers = [];
+      }
+      return parsed;
     } catch (err) {
       console.error('Database read error:', err);
-      return { enquiries: [], gallery_items: [] };
+      return { enquiries: [], gallery_items: [], subscribers: [] };
     }
   }
 
   write(data) {
     try {
+      if (!data.subscribers) {
+        data.subscribers = [];
+      }
       fs.writeFileSync(dbFilePath, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
       console.error('Database write error:', err);
@@ -178,16 +166,44 @@ class Database {
   addGalleryItem(item) {
     const data = this.read();
     const newItem = {
-      id: `g_${Date.now()}`,
+      id: item.id || `g_${Date.now()}`,
       title: item.title,
-      category: item.category,
+      category: item.category || 'Photos',
+      mediaType: item.mediaType || 'image',
       imageUrl: item.imageUrl,
+      videoUrl: item.videoUrl || '',
       description: item.description || '',
-      createdAt: new Date().toISOString()
+      createdAt: item.createdAt || new Date().toISOString()
     };
-    data.gallery_items.unshift(newItem);
+    // Avoid duplicate title addition
+    const existingIndex = data.gallery_items.findIndex(i => i.id === newItem.id || i.title === newItem.title);
+    if (existingIndex !== -1) {
+      data.gallery_items[existingIndex] = newItem;
+    } else {
+      data.gallery_items.unshift(newItem);
+    }
     this.write(data);
     return newItem;
+  }
+
+  updateGalleryItem(id, item) {
+    const data = this.read();
+    const index = data.gallery_items.findIndex(i => i.id === id);
+    if (index !== -1) {
+      data.gallery_items[index] = {
+        ...data.gallery_items[index],
+        title: item.title,
+        category: item.category,
+        mediaType: item.mediaType || 'image',
+        imageUrl: item.imageUrl,
+        videoUrl: item.videoUrl || '',
+        description: item.description || '',
+        updatedAt: new Date().toISOString()
+      };
+      this.write(data);
+      return data.gallery_items[index];
+    }
+    return null;
   }
 
   deleteGalleryItem(id) {
@@ -198,15 +214,56 @@ class Database {
     return data.gallery_items.length < initialLength;
   }
 
+  // Subscriber methods
+  getSubscribers() {
+    const data = this.read();
+    return (data.subscribers || []).sort((a, b) => new Date(b.subscribedAt) - new Date(a.subscribedAt));
+  }
+
+  addSubscriber({ email, name = '', source = 'Website CTA' }) {
+    const data = this.read();
+    if (!data.subscribers) data.subscribers = [];
+    
+    const formattedEmail = email.trim().toLowerCase();
+    const existing = data.subscribers.find(s => s.email.toLowerCase() === formattedEmail);
+    
+    if (existing) {
+      return { subscriber: existing, alreadySubscribed: true };
+    }
+
+    const newSubscriber = {
+      id: `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      email: formattedEmail,
+      name: name ? name.trim() : '',
+      source: source || 'Website CTA',
+      status: 'Active',
+      subscribedAt: new Date().toISOString()
+    };
+
+    data.subscribers.unshift(newSubscriber);
+    this.write(data);
+    return { subscriber: newSubscriber, alreadySubscribed: false };
+  }
+
+  deleteSubscriber(id) {
+    const data = this.read();
+    const initialLength = (data.subscribers || []).length;
+    data.subscribers = (data.subscribers || []).filter(s => s.id !== id);
+    this.write(data);
+    return data.subscribers.length < initialLength;
+  }
+
   getStats() {
     const data = this.read();
     const totalEnquiries = data.enquiries.length;
     const newEnquiries = data.enquiries.filter(e => e.status === 'New').length;
     const galleryCount = data.gallery_items.length;
+    const totalSubscribers = (data.subscribers || []).length;
     return {
       totalEnquiries,
       newEnquiries,
       galleryCount,
+      totalSubscribers,
       servicesCount: 3
     };
   }

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import SEO from '../components/SEO';
 import LightboxModal from '../components/LightboxModal';
+import NewsletterCTA from '../components/NewsletterCTA';
 import { servicesData } from '../data/servicesData';
 
 const Home = () => {
@@ -431,7 +432,7 @@ const Home = () => {
                 data-aos="zoom-in"
                 data-aos-delay={(idx + 1) * 100}
                 onClick={() => handleOpenLightbox(item, idx)}
-                className="group relative rounded-xl overflow-hidden bg-grey-card border border-grey-border cursor-pointer aspect-4/3"
+                className="group relative rounded-xl overflow-hidden bg-grey-card border border-grey-border cursor-pointer h-64 sm:h-72 aspect-[4/3]"
               >
                 <img 
                   src={item.imageUrl} 
@@ -514,6 +515,9 @@ const Home = () => {
           </div>
         </div>
       </section>
+
+      {/* Newsletter Signup CTA Section */}
+      <NewsletterCTA source="Home Page CTA" />
 
       {/* Call to Action Section */}
       <section 

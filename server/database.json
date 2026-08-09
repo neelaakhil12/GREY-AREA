@@ -1,44 +1,15 @@
 {
-  "enquiries": [
-    {
-      "id": "enq_1786214063273_e4a3t",
-      "name": "Tunde Bakare",
-      "email": "tunde.b@example.com",
-      "phone": "+2349091122334",
-      "service": "Event Coverage",
-      "message": "Looking to hire Grey Area for a corporate product launch event coverage in Victoria Island.",
-      "status": "New",
-      "created_at": "2026-08-08T18:34:23.273Z"
-    },
-    {
-      "id": "enq_1",
-      "name": "Adesanya Ogunlesi",
-      "email": "adesanya@example.com",
-      "phone": "+2348012345678",
-      "service": "Brand Video Production",
-      "message": "We need a 2-minute brand story video for our fintech startup launch next month.",
-      "status": "New",
-      "created_at": "2026-08-08T13:26:37.255Z"
-    },
-    {
-      "id": "enq_2",
-      "name": "Ngozi Chukwu",
-      "email": "ngozi.events@example.com",
-      "phone": "+2348098765432",
-      "service": "Event Coverage",
-      "message": "Inquiring about full multi-cam event video and highlight reel for a 2-day conference in Abuja.",
-      "status": "Contacted",
-      "created_at": "2026-08-07T18:26:37.255Z"
-    }
-  ],
+  "enquiries": [],
   "gallery_items": [
     {
-      "id": "g1",
-      "title": "Brand Story: Elevate Tech Nigeria",
-      "category": "Brand Videos",
-      "imageUrl": "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80",
-      "description": "Cinematic commercial highlighting tech startup journey and digital transformation in Lagos.",
-      "createdAt": "2026-08-08T18:26:37.253Z"
+      "id": "g_1786289062778",
+      "title": "dsdfghjm,",
+      "category": "Videos",
+      "mediaType": "video",
+      "imageUrl": "https://res.cloudinary.com/hmvqehoa/video/upload/v1786289065/grey_area_agency/j52d0kzupoyp0erchq1h.mp4",
+      "videoUrl": "https://res.cloudinary.com/hmvqehoa/video/upload/v1786289065/grey_area_agency/j52d0kzupoyp0erchq1h.mp4",
+      "description": "xcvbn m",
+      "createdAt": "2026-08-09T15:24:22.778Z"
     },
     {
       "id": "g2",
@@ -95,6 +66,24 @@
       "imageUrl": "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=800&q=80",
       "description": "Live switching and highlight reel for corporate award presentation night.",
       "createdAt": "2026-08-08T18:26:37.254Z"
+    }
+  ],
+  "subscribers": [
+    {
+      "id": "sub_1786290930530_pncfd",
+      "email": "harishneela71@gmail.com",
+      "name": "akhil",
+      "source": "Home Page CTA",
+      "status": "Active",
+      "subscribedAt": "2026-08-09T15:55:30.530Z"
+    },
+    {
+      "id": "sub_1786290898847_acev6",
+      "email": "neelaakhilkumar50@gmail.com",
+      "name": "akhil",
+      "source": "Home Page CTA",
+      "status": "Active",
+      "subscribedAt": "2026-08-09T15:54:58.847Z"
     }
   ]
 }

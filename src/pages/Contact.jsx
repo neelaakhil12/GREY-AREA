@@ -4,6 +4,7 @@ import {
   Phone, Mail, MessageSquare, Send, CheckCircle2, AlertCircle, Loader2, MapPin 
 } from 'lucide-react';
 import SEO from '../components/SEO';
+import NewsletterCTA from '../components/NewsletterCTA';
 
 const Contact = () => {
   const [searchParams] = useSearchParams();
@@ -363,6 +364,9 @@ const Contact = () => {
           </div>
         </div>
       </section>
+
+      {/* Newsletter Sign Up CTA */}
+      <NewsletterCTA source="Contact Page CTA" />
     </>
   );
 };

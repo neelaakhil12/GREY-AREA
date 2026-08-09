@@ -1,31 +1,85 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, Loader2 } from 'lucide-react';
+import { Eye, Loader2, Play, Camera, Film, Sparkles } from 'lucide-react';
 import SEO from '../components/SEO';
 import LightboxModal from '../components/LightboxModal';
+import { initialGalleryItems } from '../data/initialGallery';
 
 const Gallery = () => {
-  const [galleryItems, setGalleryItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [galleryItems, setGalleryItems] = useState(initialGalleryItems);
+  const [loading, setLoading] = useState(false);
+  const [activeCategory, setActiveCategory] = useState('All');
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  useEffect(() => {
+  const loadGalleryData = async () => {
     setLoading(true);
-    fetch('/api/gallery')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setGalleryItems(data.data);
-        } else {
-          setGalleryItems([]);
+    let apiItems = [];
+    try {
+      const res = await fetch('/api/gallery');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+        apiItems = data.data;
+      }
+    } catch (err) {
+      console.warn('API gallery load warning (using local fallback):', err);
+    }
+
+    // Load any client-saved custom uploads
+    let localCustomItems = [];
+    try {
+      const stored = localStorage.getItem('grey_area_custom_gallery');
+      if (stored) localCustomItems = JSON.parse(stored);
+    } catch (e) {
+      console.error('Local storage gallery read error:', e);
+    }
+
+    // Merge: custom uploads + api items + initial defaults (preventing duplicates by id & title)
+    const combined = [...localCustomItems, ...apiItems, ...initialGalleryItems];
+    const uniqueMap = new Map();
+    combined.forEach(item => {
+      if (item && item.title) {
+        const titleKey = item.title.trim().toLowerCase();
+        const idKey = item.id || titleKey;
+        if (!uniqueMap.has(idKey) && !uniqueMap.has(titleKey)) {
+          uniqueMap.set(idKey, item);
+          uniqueMap.set(titleKey, item);
         }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('Error fetching gallery:', err);
-        setLoading(false);
-      });
+      }
+    });
+
+    // Read deleted IDs/Titles list
+    let deletedIds = [];
+    try {
+      const delStored = localStorage.getItem('grey_area_deleted_gallery_ids');
+      if (delStored) deletedIds = JSON.parse(delStored);
+    } catch (e) {}
+
+    // Extract unique item instances and filter out test/deleted items
+    const mergedList = Array.from(new Set(uniqueMap.values()));
+    const activeItems = mergedList.filter(item => {
+      if (!item || !item.title) return false;
+      const titleLower = item.title.trim().toLowerCase();
+      if (titleLower === 'swdfghj' || titleLower.includes('swdfghj') || titleLower.includes('xzcvbn')) return false;
+      if (deletedIds.includes(item.id)) return false;
+      if (deletedIds.includes(item.title)) return false;
+      return true;
+    });
+
+    setGalleryItems(activeItems);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadGalleryData();
   }, []);
+
+  // Filter items into 2 categories: Photos & Videos
+  const filteredItems = galleryItems.filter(item => {
+    const isVideo = item.mediaType === 'video' || Boolean(item.videoUrl) || item.category === 'Videos';
+    if (activeCategory === 'Photos') return !isVideo;
+    if (activeCategory === 'Videos') return isVideo;
+    return true; // 'All'
+  });
 
   const handleOpenLightbox = (item, index) => {
     setSelectedImage(item);
@@ -35,8 +89,8 @@ const Gallery = () => {
   return (
     <>
       <SEO 
-        title="Our Gallery | Creative Media & Event Portfolio"
-        description="Explore Grey Area's portfolio of brand story videos, corporate event coverage, fashion showcases, product shoots, and behind-the-scenes moments."
+        title="Our Gallery | Creative Media & Video Portfolio"
+        description="Explore Grey Area's showcase of high-impact brand videos, commercial photography, corporate event films, and creative visual productions."
       />
 
       {/* Header Banner */}
@@ -45,21 +99,63 @@ const Gallery = () => {
           data-aos="fade-down"
           className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4"
         >
-          <span className="text-xs font-bold uppercase tracking-widest text-gray-400">
-            Creative Portfolio
-          </span>
+          <div className="inline-flex items-center space-x-2 bg-grey-card border border-grey-border px-3.5 py-1 rounded-full text-xs font-bold text-gray-300 uppercase tracking-widest">
+            <Sparkles className="w-3.5 h-3.5 text-white" />
+            <span>Creative Showcase</span>
+          </div>
+
           <h1 className="font-heading font-black text-2xl xs:text-3xl sm:text-5xl text-white break-words">
-            Our Work & Showcase
+            Our Portfolio & Work
           </h1>
           <p className="text-gray-300 text-base sm:text-lg max-w-2xl mx-auto">
-            A curated selection of brand video productions, corporate event coverage, product commercials, and celebratory moments.
+            A curated collection of strategic brand videos, commercial photography, corporate event films, and visual storytelling.
           </p>
         </div>
       </section>
 
       {/* Main Gallery Section */}
       <section className="py-8 sm:py-12 lg:py-16 bg-white min-h-[600px]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-10 lg:space-y-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 sm:space-y-12">
+
+          {/* 2 Category Filter Buttons: Photos vs Videos */}
+          <div className="flex items-center justify-center">
+            <div className="inline-flex p-1.5 bg-gray-100 rounded-2xl border border-gray-200 shadow-inner space-x-2">
+              <button
+                onClick={() => setActiveCategory('All')}
+                className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 flex items-center space-x-2 ${
+                  activeCategory === 'All'
+                    ? 'bg-black text-white shadow-md'
+                    : 'text-gray-600 hover:text-black hover:bg-white/60'
+                }`}
+              >
+                <span>All Showcase ({galleryItems.length})</span>
+              </button>
+
+              <button
+                onClick={() => setActiveCategory('Photos')}
+                className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 flex items-center space-x-2 ${
+                  activeCategory === 'Photos'
+                    ? 'bg-black text-white shadow-md'
+                    : 'text-gray-600 hover:text-black hover:bg-white/60'
+                }`}
+              >
+                <Camera className="w-4 h-4 text-emerald-400" />
+                <span>📷 Photos & Images</span>
+              </button>
+
+              <button
+                onClick={() => setActiveCategory('Videos')}
+                className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 flex items-center space-x-2 ${
+                  activeCategory === 'Videos'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'text-gray-600 hover:text-black hover:bg-white/60'
+                }`}
+              >
+                <Film className="w-4 h-4 text-white" />
+                <span>🎬 Videos & Commercials</span>
+              </button>
+            </div>
+          </div>
 
           {/* Loading Indicator */}
           {loading ? (
@@ -67,46 +163,107 @@ const Gallery = () => {
               <Loader2 className="w-8 h-8 animate-spin text-black" />
               <span className="text-sm font-medium">Loading portfolio items...</span>
             </div>
-          ) : galleryItems.length === 0 ? (
+          ) : filteredItems.length === 0 ? (
             <div className="text-center py-20 bg-gray-50 rounded-2xl border border-gray-200 max-w-md mx-auto space-y-3">
-              <p className="text-gray-600 font-medium">No portfolio media items found.</p>
+              <Camera className="w-10 h-10 text-gray-400 mx-auto" />
+              <p className="text-gray-700 font-bold">No items found in this category.</p>
+              <p className="text-xs text-gray-500">Switch to "All Showcase" to view all available media items.</p>
             </div>
           ) : (
             /* Gallery Items Grid */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {galleryItems.map((item, index) => (
-                <div
-                  key={item.id || index}
-                  data-aos="zoom-in"
-                  data-aos-delay={(index % 4 + 1) * 100}
-                  onClick={() => handleOpenLightbox(item, index)}
-                  className="group relative bg-grey-card rounded-xl overflow-hidden border border-grey-border shadow-md cursor-pointer aspect-4/3 flex flex-col justify-end"
-                >
-                  <img 
-                    src={item.imageUrl} 
-                    alt={item.title}
-                    loading="lazy" 
-                    className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-85 group-hover:opacity-100 transition-opacity p-5 flex flex-col justify-end">
-                    <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mb-1">
-                      {item.category}
-                    </span>
-                    <h3 className="font-heading font-bold text-base text-white leading-snug">
-                      {item.title}
-                    </h3>
-                    {item.description && (
-                      <p className="text-gray-300 text-xs mt-1 line-clamp-2">
-                        {item.description}
-                      </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-10">
+              {filteredItems.map((item, index) => {
+                const isVideo = item.mediaType === 'video' || Boolean(item.videoUrl) || item.category === 'Videos';
+                return (
+                  <div
+                    key={item.id || index}
+                    onClick={() => handleOpenLightbox(item, index)}
+                    className="group relative bg-grey-card rounded-2xl overflow-hidden border border-grey-border shadow-lg cursor-pointer h-72 sm:h-80 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl flex flex-col justify-end"
+                  >
+                    {/* Live Video Motion Preview or High-Res Cover Image */}
+                    {(() => {
+                      let ytThumb = '';
+                      if (item.videoUrl) {
+                        const ytMatch = item.videoUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+                        if (ytMatch && ytMatch[1]) {
+                          ytThumb = `https://img.youtube.com/vi/${ytMatch[1]}/hqdefault.jpg`;
+                        }
+                      }
+
+                      const coverSrc = item.imageUrl || ytThumb;
+                      const isDirectVideo = isVideo && (
+                        (item.videoUrl && (item.videoUrl.endsWith('.mp4') || item.videoUrl.includes('cloudinary') || item.videoUrl.startsWith('data:video'))) ||
+                        !coverSrc
+                      );
+
+                      if (isDirectVideo && item.videoUrl) {
+                        return (
+                          <video 
+                            src={item.videoUrl}
+                            muted
+                            loop
+                            autoPlay
+                            playsInline
+                            className="w-full h-full object-cover absolute inset-0 pointer-events-none transition-transform duration-500 group-hover:scale-110"
+                          />
+                        );
+                      }
+
+                      return (
+                        <img 
+                          src={coverSrc || 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80'} 
+                          alt={item.title}
+                          loading="lazy" 
+                          className="w-full h-full object-cover absolute inset-0 transition-transform duration-500 group-hover:scale-110"
+                          onError={(e) => {
+                            if (ytThumb) e.target.src = ytThumb;
+                          }}
+                        />
+                      );
+                    })()}
+                    
+                    {/* Media Type Overlay Badge */}
+                    {isVideo ? (
+                      <div className="absolute top-3 right-3 bg-emerald-600/90 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center space-x-1 border border-white/20 z-10 shadow-lg">
+                        <Play className="w-3 h-3 fill-white text-white" />
+                        <span>Video</span>
+                      </div>
+                    ) : (
+                      <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center space-x-1 border border-white/20 z-10 shadow-lg">
+                        <Camera className="w-3 h-3 text-white" />
+                        <span>Photo</span>
+                      </div>
                     )}
-                    <div className="mt-3 flex items-center space-x-1 text-xs text-gray-400">
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>View Full Quality</span>
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-85 group-hover:opacity-100 transition-opacity p-5 flex flex-col justify-end">
+                      <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mb-1">
+                        {isVideo ? 'Video Production' : 'Photography Showcase'}
+                      </span>
+                      <h3 className="font-heading font-bold text-base text-white leading-snug">
+                        {item.title}
+                      </h3>
+                      {item.description && (
+                        <p className="text-gray-300 text-xs mt-1 line-clamp-2">
+                          {item.description}
+                        </p>
+                      )}
+                      <div className="mt-3 flex items-center space-x-1 text-xs text-gray-400">
+                        {isVideo ? (
+                          <>
+                            <Play className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" />
+                            <span className="text-emerald-300 font-semibold">Play Video</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>View Full Quality</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -121,12 +278,12 @@ const Gallery = () => {
           onPrev={selectedIndex > 0 ? () => {
             const prevIndex = selectedIndex - 1;
             setSelectedIndex(prevIndex);
-            setSelectedImage(galleryItems[prevIndex]);
+            setSelectedImage(filteredItems[prevIndex]);
           } : null}
-          onNext={selectedIndex < galleryItems.length - 1 ? () => {
+          onNext={selectedIndex < filteredItems.length - 1 ? () => {
             const nextIndex = selectedIndex + 1;
             setSelectedIndex(nextIndex);
-            setSelectedImage(galleryItems[nextIndex]);
+            setSelectedImage(filteredItems[nextIndex]);
           } : null}
         />
       )}

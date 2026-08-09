@@ -12,6 +12,8 @@ import About from './pages/About';
 import Services from './pages/Services';
 import Gallery from './pages/Gallery';
 import Contact from './pages/Contact';
+import FAQ from './pages/FAQ';
+import Admin from './pages/Admin';
 
 // ScrollToTop & AOS Refresh helper on route change
 const ScrollToTop = () => {
@@ -21,6 +23,23 @@ const ScrollToTop = () => {
     AOS.refresh();
   }, [pathname]);
   return null;
+};
+
+// Layout Wrapper Component to conditionally hide Header/Footer/WhatsApp on Admin route
+const MainLayout = ({ children }) => {
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/admin');
+
+  return (
+    <div className="flex flex-col min-h-screen bg-white text-black overflow-x-hidden">
+      {!isAdmin && <Navbar />}
+      <main className={`flex-grow ${isAdmin ? 'pt-0' : 'pt-24 sm:pt-28 lg:pt-32'}`}>
+        {children}
+      </main>
+      {!isAdmin && <Footer />}
+      {!isAdmin && <FloatingWhatsApp />}
+    </div>
+  );
 };
 
 function App() {
@@ -38,20 +57,17 @@ function App() {
     <Router>
       <SplashScreen />
       <ScrollToTop />
-      <div className="flex flex-col min-h-screen bg-white text-black overflow-x-hidden">
-        <Navbar />
-        <main className="flex-grow pt-24 sm:pt-28 lg:pt-32">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/services" element={<Services />} />
-            <Route path="/gallery" element={<Gallery />} />
-            <Route path="/contact" element={<Contact />} />
-          </Routes>
-        </main>
-        <Footer />
-        <FloatingWhatsApp />
-      </div>
+      <MainLayout>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/gallery" element={<Gallery />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/admin" element={<Admin />} />
+        </Routes>
+      </MainLayout>
     </Router>
   );
 }
