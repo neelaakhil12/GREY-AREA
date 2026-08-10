@@ -447,33 +447,73 @@ const Home = () => {
             </div>
           ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-            {featuredItems.map((item, idx) => (
-              <div 
-                key={item.id || idx}
-                data-aos="fade-up"
-                data-aos-delay={(idx + 1) * 100}
-                onClick={() => handleOpenLightbox(item, idx)}
-                className="group relative rounded-2xl overflow-hidden bg-grey-card border border-grey-border cursor-pointer aspect-[4/3] shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5"
-              >
-                <img 
-                  src={item.imageUrl} 
-                  alt={item.title} 
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90 group-hover:opacity-100 transition-opacity p-5 sm:p-6 flex flex-col justify-end">
-                  <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-widest mb-1.5">
-                    {item.category}
-                  </span>
-                  <h4 className="font-heading font-bold text-sm sm:text-base text-white leading-snug group-hover:text-gray-200 transition line-clamp-2">
-                    {item.title}
-                  </h4>
-                  <div className="mt-2.5 flex items-center space-x-1.5 text-xs text-gray-300 font-medium">
-                    <Eye className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Click to view larger</span>
+            {featuredItems.map((item, idx) => {
+              const isVideo = item.mediaType === 'video' || Boolean(item.videoUrl) || item.category === 'Videos';
+              let ytThumb = '';
+              if (item.videoUrl) {
+                const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+                const match = item.videoUrl.match(regExp);
+                if (match && match[2].length === 11) {
+                  ytThumb = `https://img.youtube.com/vi/${match[2]}/hqdefault.jpg`;
+                }
+              }
+
+              const videoSrc = item.videoUrl || (item.imageUrl && (item.imageUrl.endsWith('.mp4') || item.imageUrl.includes('/video/upload/') || item.imageUrl.startsWith('data:video')) ? item.imageUrl : '');
+              const coverSrc = (item.imageUrl && !item.imageUrl.endsWith('.mp4') && !item.imageUrl.includes('/video/upload/') && !item.imageUrl.startsWith('data:video')) ? item.imageUrl : ytThumb;
+
+              const isDirectVideo = isVideo && (videoSrc || !coverSrc);
+
+              return (
+                <div 
+                  key={item.id || idx}
+                  data-aos="fade-up"
+                  data-aos-delay={(idx + 1) * 100}
+                  onClick={() => handleOpenLightbox(item, idx)}
+                  className="group relative rounded-2xl overflow-hidden bg-grey-card border border-grey-border cursor-pointer aspect-[4/3] shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5"
+                >
+                  {isDirectVideo && videoSrc ? (
+                    <video 
+                      src={videoSrc}
+                      muted
+                      loop
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 pointer-events-none"
+                    />
+                  ) : (
+                    <img 
+                      src={coverSrc || 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=800&q=80'} 
+                      alt={item.title} 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => {
+                        if (ytThumb) e.target.src = ytThumb;
+                      }}
+                    />
+                  )}
+
+                  {/* Media Type Overlay Badge */}
+                  {isVideo && (
+                    <div className="absolute top-3 right-3 bg-emerald-600/90 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center space-x-1 border border-white/20 z-10 shadow-lg">
+                      <Play className="w-3 h-3 fill-white text-white" />
+                      <span>Video</span>
+                    </div>
+                  )}
+
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-90 group-hover:opacity-100 transition-opacity p-5 sm:p-6 flex flex-col justify-end">
+                    <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-widest mb-1.5">
+                      {item.category}
+                    </span>
+                    <h4 className="font-heading font-bold text-sm sm:text-base text-white leading-snug group-hover:text-gray-200 transition line-clamp-2">
+                      {item.title}
+                    </h4>
+                    <div className="mt-2.5 flex items-center space-x-1.5 text-xs text-gray-300 font-medium">
+                      {isVideo ? <Play className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" /> : <Eye className="w-3.5 h-3.5 text-emerald-400" />}
+                      <span>{isVideo ? 'Click to play video' : 'Click to view larger'}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           )}
 
