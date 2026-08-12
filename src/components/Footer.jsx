@@ -198,7 +198,7 @@ const Footer = () => {
 
         {/* Bottom Bar */}
         <div className="mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-grey-border/60 flex flex-col md:flex-row items-center justify-between text-xs text-gray-400 gap-4">
-          <p>© {new Date().getFullYear()} Grey Area Creative Media Agency. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Grey Area Productions Ltd. All rights reserved.</p>
           
           {/* Social Icons Bar */}
           <div className="flex items-center space-x-4">

@@ -56,7 +56,7 @@ const FAQ = () => {
       id: 7,
       category: 'Pricing & Payments',
       question: 'What Are Your Payment Terms?',
-      answer: 'We operate on a standard deposit milestone model: 50% initial deposit upon contract agreement to lock production dates and kickstart storyboarding, with the remaining balance due prior to final high-resolution deliverable hand-off.'
+      answer: 'We operate on a standard deposit milestone model: 70% initial deposit upon contract agreement to lock production dates and kickstart storyboarding, with the remaining balance due prior to final high-resolution deliverable hand-off.'
     }
   ];
 
